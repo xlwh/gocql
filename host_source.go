@@ -120,7 +120,7 @@ type HostInfo struct {
 	port             int
 	dataCenter       string
 	rack             string
-	hostId           string
+	hostId           UUID
 	workload         string
 	graph            bool
 	dseVersion       string
@@ -254,13 +254,13 @@ func (h *HostInfo) setRack(rack string) *HostInfo {
 	return h
 }
 
-func (h *HostInfo) HostID() string {
+func (h *HostInfo) HostID() UUID {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.hostId
 }
 
-func (h *HostInfo) setHostID(hostID string) *HostInfo {
+func (h *HostInfo) setHostID(hostID UUID) *HostInfo {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.hostId = hostID
@@ -388,7 +388,7 @@ func (h *HostInfo) update(from *HostInfo) {
 	if h.rack == "" {
 		h.rack = from.rack
 	}
-	if h.hostId == "" {
+	if h.hostId == emptyUUID {
 		h.hostId = from.hostId
 	}
 	if h.workload == "" {
@@ -483,7 +483,7 @@ func (s *Session) hostInfoFromMap(row map[string]interface{}, host *HostInfo) (*
 			if !ok {
 				return nil, fmt.Errorf(assertErrorMsg, "host_id")
 			}
-			host.hostId = hostId.String()
+			host.hostId = hostId
 		case "release_version":
 			version, ok := value.(string)
 			if !ok {
@@ -607,7 +607,7 @@ func (r *ringDescriber) getClusterPeerInfo() ([]*HostInfo, error) {
 // Return true if the host is a valid peer
 func isValidPeer(host *HostInfo) bool {
 	return !(len(host.RPCAddress()) == 0 ||
-		host.hostId == "" ||
+		host.hostId == emptyUUID ||
 		host.dataCenter == "" ||
 		host.rack == "" ||
 		len(host.tokens) == 0)

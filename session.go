@@ -1261,6 +1261,8 @@ type Iter struct {
 
 	framer *framer
 	closed int32
+
+	nextFetched bool
 }
 
 // Host returns the host which the query was sent to.
@@ -1422,7 +1424,10 @@ func (iter *Iter) Scan(dest ...interface{}) bool {
 		return false
 	}
 
-	if iter.next != nil && iter.pos >= iter.next.pos {
+	// iter 没人会多线程访问!
+	// fetch 走网路十分慢，当扫描速度非常快时此处会起大量协程 并产生激烈的锁冲突
+	if iter.next != nil && iter.pos >= iter.next.pos && !iter.nextFetched {
+		iter.nextFetched = true
 		go iter.next.fetch()
 	}
 

@@ -14,20 +14,36 @@ import (
 	"github.com/hailocab/go-hostpool"
 )
 
+var h0, _ = RandomUUID()
+var h1, _ = RandomUUID()
+var h2, _ = RandomUUID()
+var h3, _ = RandomUUID()
+var h4, _ = RandomUUID()
+var h5, _ = RandomUUID()
+var h6, _ = RandomUUID()
+var h7, _ = RandomUUID()
+var h8, _ = RandomUUID()
+var h9, _ = RandomUUID()
+var h10, _ = RandomUUID()
+var h11, _ = RandomUUID()
+var h25, _ = RandomUUID()
+var h50, _ = RandomUUID()
+var h75, _ = RandomUUID()
+
 // Tests of the round-robin host selection policy implementation
 func TestRoundRobbin(t *testing.T) {
 	policy := RoundRobinHostPolicy()
 
 	hosts := [...]*HostInfo{
-		{hostId: "0", connectAddress: net.IPv4(0, 0, 0, 1)},
-		{hostId: "1", connectAddress: net.IPv4(0, 0, 0, 2)},
+		{hostId: h0, connectAddress: net.IPv4(0, 0, 0, 1)},
+		{hostId: h1, connectAddress: net.IPv4(0, 0, 0, 2)},
 	}
 
 	for _, host := range hosts {
 		policy.AddHost(host)
 	}
 
-	got := make(map[string]bool)
+	got := make(map[UUID]bool)
 	it := policy.Pick(nil)
 	for h := it(); h != nil; h = it() {
 		id := h.Info().hostId
@@ -66,10 +82,10 @@ func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
 
 	// set the hosts
 	hosts := [...]*HostInfo{
-		{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00"}},
-		{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"25"}},
-		{hostId: "2", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50"}},
-		{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"75"}},
+		{hostId: h0, connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00"}},
+		{hostId: h1, connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"25"}},
+		{hostId: h2, connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50"}},
+		{hostId: h3, connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"75"}},
 	}
 	for _, host := range &hosts {
 		policy.AddHost(host)
@@ -106,8 +122,8 @@ func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
 	// now the token ring is configured
 	query.RoutingKey([]byte("20"))
 	iter = policy.Pick(query)
-	iterCheck(t, iter, "1")
-	iterCheck(t, iter, "2")
+	iterCheck(t, iter, h1)
+	iterCheck(t, iter, h2)
 }
 
 // Tests of the host pool host selection policy implementation
@@ -115,8 +131,8 @@ func TestHostPolicy_HostPool(t *testing.T) {
 	policy := HostPoolHostPolicy(hostpool.New(nil))
 
 	hosts := []*HostInfo{
-		{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 0)},
-		{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 1)},
+		{hostId: h0, connectAddress: net.IPv4(10, 0, 0, 0)},
+		{hostId: h1, connectAddress: net.IPv4(10, 0, 0, 1)},
 	}
 
 	// Using set host to control the ordering of the hosts as calling "AddHost" iterates the map
@@ -127,25 +143,25 @@ func TestHostPolicy_HostPool(t *testing.T) {
 	// interleaved iteration should always increment the host
 	iter := policy.Pick(nil)
 	actualA := iter()
-	if actualA.Info().HostID() != "0" {
+	if actualA.Info().HostID() != h0 {
 		t.Errorf("Expected hosts[0] but was hosts[%s]", actualA.Info().HostID())
 	}
 	actualA.Mark(nil)
 
 	actualB := iter()
-	if actualB.Info().HostID() != "1" {
+	if actualB.Info().HostID() != h1 {
 		t.Errorf("Expected hosts[1] but was hosts[%s]", actualB.Info().HostID())
 	}
 	actualB.Mark(fmt.Errorf("error"))
 
 	actualC := iter()
-	if actualC.Info().HostID() != "0" {
+	if actualC.Info().HostID() != h0 {
 		t.Errorf("Expected hosts[0] but was hosts[%s]", actualC.Info().HostID())
 	}
 	actualC.Mark(nil)
 
 	actualD := iter()
-	if actualD.Info().HostID() != "0" {
+	if actualD.Info().HostID() != h0 {
 		t.Errorf("Expected hosts[0] but was hosts[%s]", actualD.Info().HostID())
 	}
 	actualD.Mark(nil)
@@ -154,7 +170,7 @@ func TestHostPolicy_HostPool(t *testing.T) {
 func TestHostPolicy_RoundRobin_NilHostInfo(t *testing.T) {
 	policy := RoundRobinHostPolicy()
 
-	host := &HostInfo{hostId: "host-1"}
+	host := &HostInfo{hostId: h1}
 	policy.AddHost(host)
 
 	iter := policy.Pick(nil)
@@ -368,7 +384,7 @@ func TestDowngradingConsistencyRetryPolicy(t *testing.T) {
 	}
 }
 
-func iterCheck(t *testing.T, iter NextHost, hostID string) {
+func iterCheck(t *testing.T, iter NextHost, hostID UUID) {
 	t.Helper()
 
 	host := iter()
@@ -384,17 +400,17 @@ func TestHostPolicy_DCAwareRR(t *testing.T) {
 	p := DCAwareRoundRobinPolicy("local")
 
 	hosts := [...]*HostInfo{
-		{hostId: "0", connectAddress: net.ParseIP("10.0.0.1"), dataCenter: "local"},
-		{hostId: "1", connectAddress: net.ParseIP("10.0.0.2"), dataCenter: "local"},
-		{hostId: "2", connectAddress: net.ParseIP("10.0.0.3"), dataCenter: "remote"},
-		{hostId: "3", connectAddress: net.ParseIP("10.0.0.4"), dataCenter: "remote"},
+		{hostId: h0, connectAddress: net.ParseIP("10.0.0.1"), dataCenter: "local"},
+		{hostId: h1, connectAddress: net.ParseIP("10.0.0.2"), dataCenter: "local"},
+		{hostId: h2, connectAddress: net.ParseIP("10.0.0.3"), dataCenter: "remote"},
+		{hostId: h3, connectAddress: net.ParseIP("10.0.0.4"), dataCenter: "remote"},
 	}
 
 	for _, host := range hosts {
 		p.AddHost(host)
 	}
 
-	got := make(map[string]bool, len(hosts))
+	got := make(map[UUID]bool, len(hosts))
 	var dcs []string
 
 	it := p.Pick(nil)
@@ -452,18 +468,18 @@ func TestHostPolicy_TokenAware(t *testing.T) {
 
 	// set the hosts
 	hosts := [...]*HostInfo{
-		{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"05"}, dataCenter: "remote1"},
-		{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"10"}, dataCenter: "local"},
-		{hostId: "2", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"15"}, dataCenter: "remote2"},
-		{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"20"}, dataCenter: "remote1"},
-		{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 5), tokens: []string{"25"}, dataCenter: "local"},
-		{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 6), tokens: []string{"30"}, dataCenter: "remote2"},
-		{hostId: "6", connectAddress: net.IPv4(10, 0, 0, 7), tokens: []string{"35"}, dataCenter: "remote1"},
-		{hostId: "7", connectAddress: net.IPv4(10, 0, 0, 8), tokens: []string{"40"}, dataCenter: "local"},
-		{hostId: "8", connectAddress: net.IPv4(10, 0, 0, 9), tokens: []string{"45"}, dataCenter: "remote2"},
-		{hostId: "9", connectAddress: net.IPv4(10, 0, 0, 10), tokens: []string{"50"}, dataCenter: "remote1"},
-		{hostId: "10", connectAddress: net.IPv4(10, 0, 0, 11), tokens: []string{"55"}, dataCenter: "local"},
-		{hostId: "11", connectAddress: net.IPv4(10, 0, 0, 12), tokens: []string{"60"}, dataCenter: "remote2"},
+		{hostId: h0, connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"05"}, dataCenter: "remote1"},
+		{hostId: h1, connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"10"}, dataCenter: "local"},
+		{hostId: h2, connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"15"}, dataCenter: "remote2"},
+		{hostId: h3, connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"20"}, dataCenter: "remote1"},
+		{hostId: h4, connectAddress: net.IPv4(10, 0, 0, 5), tokens: []string{"25"}, dataCenter: "local"},
+		{hostId: h5, connectAddress: net.IPv4(10, 0, 0, 6), tokens: []string{"30"}, dataCenter: "remote2"},
+		{hostId: h6, connectAddress: net.IPv4(10, 0, 0, 7), tokens: []string{"35"}, dataCenter: "remote1"},
+		{hostId: h7, connectAddress: net.IPv4(10, 0, 0, 8), tokens: []string{"40"}, dataCenter: "local"},
+		{hostId: h8, connectAddress: net.IPv4(10, 0, 0, 9), tokens: []string{"45"}, dataCenter: "remote2"},
+		{hostId: h9, connectAddress: net.IPv4(10, 0, 0, 10), tokens: []string{"50"}, dataCenter: "remote1"},
+		{hostId: h10, connectAddress: net.IPv4(10, 0, 0, 11), tokens: []string{"55"}, dataCenter: "local"},
+		{hostId: h11, connectAddress: net.IPv4(10, 0, 0, 12), tokens: []string{"60"}, dataCenter: "remote2"},
 	}
 	for _, host := range hosts {
 		policy.AddHost(host)
@@ -522,7 +538,7 @@ func TestHostPolicy_TokenAware(t *testing.T) {
 	query.RoutingKey([]byte("23"))
 	iter = policy.Pick(query)
 	// first should be host with matching token from the local DC
-	iterCheck(t, iter, "4")
+	iterCheck(t, iter, h4)
 	// next are in non deterministic order
 }
 
@@ -552,18 +568,18 @@ func TestHostPolicy_TokenAware_NetworkStrategy(t *testing.T) {
 
 	// set the hosts
 	hosts := [...]*HostInfo{
-		{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"05"}, dataCenter: "remote1"},
-		{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"10"}, dataCenter: "local"},
-		{hostId: "2", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"15"}, dataCenter: "remote2"},
-		{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"20"}, dataCenter: "remote1"}, // 1
-		{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 5), tokens: []string{"25"}, dataCenter: "local"},   // 2
-		{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 6), tokens: []string{"30"}, dataCenter: "remote2"}, // 3
-		{hostId: "6", connectAddress: net.IPv4(10, 0, 0, 7), tokens: []string{"35"}, dataCenter: "remote1"}, // 4
-		{hostId: "7", connectAddress: net.IPv4(10, 0, 0, 8), tokens: []string{"40"}, dataCenter: "local"},   // 5
-		{hostId: "8", connectAddress: net.IPv4(10, 0, 0, 9), tokens: []string{"45"}, dataCenter: "remote2"}, // 6
-		{hostId: "9", connectAddress: net.IPv4(10, 0, 0, 10), tokens: []string{"50"}, dataCenter: "remote1"},
-		{hostId: "10", connectAddress: net.IPv4(10, 0, 0, 11), tokens: []string{"55"}, dataCenter: "local"},
-		{hostId: "11", connectAddress: net.IPv4(10, 0, 0, 12), tokens: []string{"60"}, dataCenter: "remote2"},
+		{hostId: h0, connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"05"}, dataCenter: "remote1"},
+		{hostId: h1, connectAddress: net.IPv4(10, 0, 0, 2), tokens: []string{"10"}, dataCenter: "local"},
+		{hostId: h2, connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"15"}, dataCenter: "remote2"},
+		{hostId: h3, connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"20"}, dataCenter: "remote1"}, // 1
+		{hostId: h4, connectAddress: net.IPv4(10, 0, 0, 5), tokens: []string{"25"}, dataCenter: "local"},   // 2
+		{hostId: h5, connectAddress: net.IPv4(10, 0, 0, 6), tokens: []string{"30"}, dataCenter: "remote2"}, // 3
+		{hostId: h6, connectAddress: net.IPv4(10, 0, 0, 7), tokens: []string{"35"}, dataCenter: "remote1"}, // 4
+		{hostId: h7, connectAddress: net.IPv4(10, 0, 0, 8), tokens: []string{"40"}, dataCenter: "local"},   // 5
+		{hostId: h8, connectAddress: net.IPv4(10, 0, 0, 9), tokens: []string{"45"}, dataCenter: "remote2"}, // 6
+		{hostId: h9, connectAddress: net.IPv4(10, 0, 0, 10), tokens: []string{"50"}, dataCenter: "remote1"},
+		{hostId: h10, connectAddress: net.IPv4(10, 0, 0, 11), tokens: []string{"55"}, dataCenter: "local"},
+		{hostId: h11, connectAddress: net.IPv4(10, 0, 0, 12), tokens: []string{"60"}, dataCenter: "remote2"},
 	}
 	for _, host := range hosts {
 		policy.AddHost(host)
@@ -611,11 +627,11 @@ func TestHostPolicy_TokenAware_NetworkStrategy(t *testing.T) {
 	query.RoutingKey([]byte("18"))
 	iter = policy.Pick(query)
 	// first should be hosts with matching token from the local DC
-	iterCheck(t, iter, "4")
-	iterCheck(t, iter, "7")
+	iterCheck(t, iter, h4)
+	iterCheck(t, iter, h7)
 	// rest should be hosts with matching token from remote DCs
-	iterCheck(t, iter, "3")
-	iterCheck(t, iter, "5")
-	iterCheck(t, iter, "6")
-	iterCheck(t, iter, "8")
+	iterCheck(t, iter, h3)
+	iterCheck(t, iter, h5)
+	iterCheck(t, iter, h6)
+	iterCheck(t, iter, h8)
 }

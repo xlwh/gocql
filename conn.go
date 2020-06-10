@@ -143,8 +143,7 @@ type Conn struct {
 	headerBuf [maxFrameHeaderSize]byte
 
 	streams *streams.IDGenerator
-	mu      sync.Mutex
-	calls   map[int]*callReq
+	calls   []*callReq // 32768 * 8 byte = 256KiB
 
 	errorHandler ConnErrorHandler
 	compressor   Compressor
@@ -213,7 +212,6 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		dialer = d
 	}
 
-
 	conn, err := dialer.DialContext(ctx, "tcp", host.HostnameAndPort())
 	if err != nil {
 		return nil, err
@@ -229,18 +227,19 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		conn = tconn
 	}
 
+	var streamGenerator = streams.New(cfg.ProtoVersion)
 	ctx, cancel := context.WithCancel(ctx)
 	c := &Conn{
 		conn:          conn,
 		r:             bufio.NewReader(conn),
 		cfg:           cfg,
-		calls:         make(map[int]*callReq),
+		calls:         make([]*callReq, streamGenerator.NumStreams),
 		version:       uint8(cfg.ProtoVersion),
 		addr:          conn.RemoteAddr().String(),
 		errorHandler:  errorHandler,
 		compressor:    cfg.Compressor,
 		session:       s,
-		streams:       streams.New(cfg.ProtoVersion),
+		streams:       streamGenerator,
 		host:          host,
 		frameObserver: s.frameObserver,
 		w: &deadlineWriter{
@@ -485,8 +484,10 @@ func (c *Conn) closeWithError(err error) {
 	// we should attempt to deliver the error back to the caller if it
 	// exists
 	if err != nil {
-		c.mu.Lock()
 		for _, req := range c.calls {
+			if req == nil {
+				continue
+			}
 			// we need to send the error to all waiting queries, put the state
 			// of this conn into not active so that it can not execute any queries.
 			select {
@@ -494,7 +495,6 @@ func (c *Conn) closeWithError(err error) {
 			case <-req.timeout:
 			}
 		}
-		c.mu.Unlock()
 	}
 
 	// if error was nil then unblock the quit channel
@@ -653,11 +653,10 @@ func (c *Conn) recv(ctx context.Context) error {
 		}
 	}
 
-	c.mu.Lock()
-	call, ok := c.calls[head.stream]
-	delete(c.calls, head.stream)
-	c.mu.Unlock()
-	if call == nil || call.framer == nil || !ok {
+	call := c.calls[head.stream]
+	c.calls[head.stream] = nil // delete caller
+
+	if call == nil || call.framer == nil {
 		Logger.Printf("gocql: received response for stream which has no handler: header=%v\n", head)
 		return c.discardFrame(head)
 	} else if head.stream != call.streamID {
@@ -862,12 +861,10 @@ func (c *Conn) exec(ctx context.Context, req frameWriter, tracer Tracer) (*frame
 		resp:     make(chan error),
 	}
 
-	c.mu.Lock()
 	existingCall := c.calls[stream]
 	if existingCall == nil {
 		c.calls[stream] = call
 	}
-	c.mu.Unlock()
 
 	if existingCall != nil {
 		return nil, fmt.Errorf("attempting to use stream already in use: %d -> %d", stream, existingCall.streamID)

@@ -20,6 +20,7 @@ import (
 )
 
 type UUID [16]byte
+var emptyUUID = UUID{}
 
 var hardwareAddr []byte
 var clockSeq uint32

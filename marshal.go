@@ -182,8 +182,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 }
 
 func isNullableValue(value interface{}) bool {
-	v := reflect.ValueOf(value)
-	return v.Kind() == reflect.Ptr && v.Type().Elem().Kind() == reflect.Ptr
+	return false
 }
 
 func isNullData(info TypeInfo, data []byte) bool {

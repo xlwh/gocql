@@ -7,10 +7,10 @@ import (
 )
 
 func TestPlacementStrategy_SimpleStrategy(t *testing.T) {
-	host0 := &HostInfo{hostId: "0"}
-	host25 := &HostInfo{hostId: "25"}
-	host50 := &HostInfo{hostId: "50"}
-	host75 := &HostInfo{hostId: "75"}
+	host0 := &HostInfo{hostId: h0}
+	host25 := &HostInfo{hostId: h25}
+	host50 := &HostInfo{hostId: h50}
+	host75 := &HostInfo{hostId: h75}
 
 	tokens := []hostToken{
 		{intToken(0), host0},
@@ -68,10 +68,11 @@ func TestPlacementStrategy_NetworkStrategy(t *testing.T) {
 		for j := 0; j < hostsPerDC; j++ {
 			rack := fmt.Sprintf("rack%d", (j%racksPerDC)+1)
 
-			h := &HostInfo{hostId: fmt.Sprintf("%s:%s:%d", dc, rack, j), dataCenter: dc, rack: rack}
+			var id, _ = UUIDFromBytes([]byte(fmt.Sprintf("%s:%s:%d", dc, rack, j)))
+			h := &HostInfo{hostId: id, dataCenter: dc, rack: rack}
 
 			token := hostToken{
-				token: orderedToken([]byte(h.hostId)),
+				token: orderedToken(h.hostId.String()),
 				host:  h,
 			}
 
